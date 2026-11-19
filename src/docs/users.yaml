@@ -1,0 +1,277 @@
+openapi: 3.0.3
+info:
+  title: UnaHur Anti-Social Net - Users
+  version: 1.0.0
+
+# La referencia a Mensaje esta definida en swagger.yaml;
+# swagger.js junta todos los .yaml de esta carpeta en un solo documento.
+
+tags:
+  - name: Users
+    description: Usuarios registrados. El nickName y el email no se pueden repetir.
+
+paths:
+  /users:
+    get:
+      tags: [Users]
+      summary: Listar todos los usuarios
+      operationId: obtenerUsers
+      responses:
+        "200":
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "500":
+          description: Error al obtener los usuarios
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mensaje"
+              example:
+                message: Error al obtener los usuarios
+
+    post:
+      tags: [Users]
+      summary: Crear un usuario
+      operationId: crearUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/UserInvalido"
+        "409":
+          $ref: "#/components/responses/UserRepetido"
+        "500":
+          description: Error al crear el usuario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mensaje"
+              example:
+                message: Error al crear el usuario
+
+  /users/{nickName}:
+    parameters:
+      - name: nickName
+        in: path
+        required: true
+        description: Nickname unico del usuario.
+        schema:
+          type: string
+          minLength: 3
+          maxLength: 50
+        example: tomas
+
+    get:
+      tags: [Users]
+      summary: Obtener un usuario por nickName
+      operationId: obtenerUser
+      responses:
+        "200":
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/NickNameInvalido"
+        "404":
+          $ref: "#/components/responses/UserNoEncontrado"
+        "500":
+          $ref: "#/components/responses/ErrorBuscarUser"
+
+    put:
+      tags: [Users]
+      summary: Modificar un usuario
+      operationId: modificarUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "200":
+          description: Usuario modificado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: NickName invalido o datos del body invalidos
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Mensaje"
+                  - $ref: "#/components/schemas/ErrorValidacionUser"
+              examples:
+                nickNameInvalido:
+                  summary: NickName invalido
+                  value:
+                    message: El nickName ingresado no es valido
+                bodyInvalido:
+                  summary: Body invalido
+                  value:
+                    mensaje: Datos de usuario inválidos
+                    errores:
+                      - '"email" must be a valid email'
+        "404":
+          $ref: "#/components/responses/UserNoEncontrado"
+        "409":
+          $ref: "#/components/responses/UserRepetido"
+        "500":
+          description: Error al buscar o modificar el usuario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mensaje"
+              examples:
+                errorAlBuscar:
+                  summary: Fallo la busqueda del usuario
+                  value:
+                    message: Error al buscar el usuario
+                errorAlModificar:
+                  summary: Fallo la modificacion
+                  value:
+                    message: Error al modificar el usuario
+
+    delete:
+      tags: [Users]
+      summary: Borrar un usuario
+      description: Borra el usuario y, en cascada, sus posts (con sus imagenes, comentarios y tags asignados) y sus comentarios.
+      operationId: borrarUser
+      responses:
+        "204":
+          description: Usuario eliminado. La respuesta no tiene cuerpo.
+        "400":
+          $ref: "#/components/responses/NickNameInvalido"
+        "404":
+          $ref: "#/components/responses/UserNoEncontrado"
+        "500":
+          description: Error al buscar o eliminar el usuario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Mensaje"
+              examples:
+                errorAlBuscar:
+                  summary: Fallo la busqueda del usuario
+                  value:
+                    message: Error al buscar el usuario
+                errorAlEliminar:
+                  summary: Fallo el borrado
+                  value:
+                    message: Error al eliminar el usuario
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nickName:
+          type: string
+          example: tomas
+        email:
+          type: string
+          format: email
+          example: tomas@mail.com
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserInput:
+      type: object
+      required: [nickName, email]
+      additionalProperties: false
+      properties:
+        nickName:
+          type: string
+          minLength: 3
+          maxLength: 50
+          description: Unico. Se le quitan los espacios de los extremos.
+          example: tomas
+        email:
+          type: string
+          format: email
+          description: Unico. Se le quitan los espacios de los extremos.
+          example: tomas@mail.com
+
+    ErrorValidacionUser:
+      type: object
+      properties:
+        mensaje:
+          type: string
+          example: Datos de usuario inválidos
+        errores:
+          type: array
+          description: Todos los errores de validacion de Joi
+          items:
+            type: string
+          example:
+            - '"nickName" length must be at least 3 characters long'
+            - '"email" is required'
+
+  responses:
+    UserInvalido:
+      description: Datos del body invalidos
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorValidacionUser"
+
+    UserNoEncontrado:
+      description: No existe un usuario con ese nickName
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Mensaje"
+          example:
+            message: Usuario no encontrado
+
+    UserRepetido:
+      description: El nickName o el email ya pertenecen a otro usuario
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Mensaje"
+          example:
+            message: El nickName o email ya está registrado
+
+    ErrorBuscarUser:
+      description: Error al buscar el usuario
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Mensaje"
+          example:
+            message: Error al buscar el usuario
+
+    NickNameInvalido:
+      description: El nickName recibido en la ruta no cumple las validaciones.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Mensaje"
+          example:
+            message: El nickName ingresado no es válido

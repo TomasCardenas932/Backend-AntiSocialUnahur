@@ -1,0 +1,42 @@
+'use strict';
+
+const { Model } = require('sequelize');
+
+module.exports = (sequelize, DataTypes) => {
+  class Follow extends Model {
+    static associate(models) {
+      Follow.belongsTo(models.User, {
+        foreignKey: 'followerId',
+        as: 'seguidor'
+      });
+
+      Follow.belongsTo(models.User, {
+        foreignKey: 'followingId',
+        as: 'seguido'
+      });
+    }
+  }
+
+  Follow.init({
+    followerId: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+    followingId: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    }
+  }, {
+    sequelize,
+    modelName: 'Follow',
+    tableName: 'Follows',
+    indexes: [
+      {
+        unique: true,
+        fields: ['followerId', 'followingId']
+      }
+    ]
+  });
+
+  return Follow;
+};

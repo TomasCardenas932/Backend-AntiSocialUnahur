@@ -1,0 +1,807 @@
+openapi: 3.0.3
+info:
+  title: UnaHur Anti-Social Net - Comments y Tags
+  version: 1.0.0
+  description: Endpoints de comentarios y etiquetas (tags) de la red social.
+
+tags:
+  - name: Comments
+    description: Comentarios de los usuarios sobre los posts
+  - name: Tags
+    description: Etiquetas asignables a los posts
+
+paths:
+  /comments:
+    get:
+      tags: [Comments]
+      summary: Lista todos los comentarios
+      description: Devuelve todos los comentarios, incluso los vencidos. El campo virtual `visible` indica si el comentario todavía se muestra.
+      parameters:
+        - name: postId
+          in: query
+          required: false
+          description: Filtra los comentarios de un post
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Lista de comentarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al obtener los comentarios
+
+  /comments/post/{id}:
+    post:
+      tags: [Comments]
+      summary: Crea un comentario
+      description: Verifica que existan el post y el usuario. La fecha se asigna automáticamente.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id del post
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentInput'
+            example:
+              contenido: Muy buen post!
+              userId: 2
+      responses:
+        '201':
+          description: Comentario creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Comentario creado con exito
+                  comentario:
+                    $ref: '#/components/schemas/Comment'
+        '400':
+          description: Datos inválidos (falta un campo, tipo incorrecto o campo no permitido)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Datos inválidos
+                error: El contenido es obligatorio
+        '404':
+          description: El post o el usuario no existen
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                postInexistente:
+                  summary: Post inexistente
+                  value:
+                    message: Post no encontrado
+                usuarioInexistente:
+                  summary: Usuario inexistente
+                  value:
+                    message: Usuario no encontrado
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al crear el comentario
+
+  /comments/post/{postId}:
+    get:
+      tags: [Comments]
+      summary: Lista los comentarios visibles de un post
+      description: Devuelve solo los comentarios con `visible = true`, es decir, los que no superan la antigüedad en meses definida por la variable de entorno `MESES_VISIBILIDAD`. Ordenados del más nuevo al más viejo.
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          description: Id del post
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Comentarios visibles del post
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+        '400':
+          description: El postId no es un entero positivo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: El postId debe ser un número
+        '404':
+          description: El post no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Post no encontrado
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al obtener los comentarios
+
+  /comments/{id}:
+    get:
+      tags: [Comments]
+      summary: Obtiene un comentario por id
+      description: Incluye el usuario que lo escribió (`id` y `nickName`).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id del comentario
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Comentario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentConUsuario'
+        '400':
+          description: El id no es un entero positivo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: El id debe ser un número
+        '404':
+          description: El comentario no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Comentario no encontrado
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al obtener el comentario
+    put:
+      tags: [Comments]
+      summary: Edita el contenido de un comentario
+      description: Solo se puede modificar el `contenido`. El post, el usuario y la fecha no cambian.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id del comentario
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentUpdate'
+            example:
+              contenido: Contenido corregido
+      responses:
+        '200':
+          description: Comentario actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Comentario actualizado con exito
+                  comentario:
+                    $ref: '#/components/schemas/CommentConUsuario'
+        '400':
+          description: El id es inválido o el body no cumple las reglas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Datos inválidos
+                error: El contenido no puede estar vacío
+        '404':
+          description: El comentario no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Comentario no encontrado
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al actualizar el comentario
+    delete:
+      tags: [Comments]
+      summary: Elimina un comentario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id del comentario
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Comentario eliminado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensaje'
+              example:
+                message: Comentario eliminado con exito
+        '400':
+          description: El id no es un entero positivo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: El id debe ser un número
+        '404':
+          description: El comentario no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Comentario no encontrado
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al eliminar el comentario
+
+  /tags:
+    get:
+      tags: [Tags]
+      summary: Lista todos los tags
+      responses:
+        '200':
+          description: Lista de tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tag'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al obtener los tags
+    post:
+      tags: [Tags]
+      summary: Crea un tag
+      description: El nombre debe ser único.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagInput'
+            example:
+              nombre: viajes
+      responses:
+        '201':
+          description: Tag creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Tag creado con exito
+                  tag:
+                    $ref: '#/components/schemas/Tag'
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Datos inválidos
+                error: El nombre es obligatorio
+        '409':
+          description: Ya existe un tag con ese nombre
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Ya existe un tag con ese nombre
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al crear el tag
+
+  /tags/{id}:
+    get:
+      tags: [Tags]
+      summary: Obtiene un tag con sus posts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id del tag
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Tag encontrado, con los posts que lo usan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagConPosts'
+        '400':
+          description: El id no es un entero positivo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: El id debe ser un número
+        '404':
+          description: El tag no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Tag no encontrado
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al obtener el tag
+    put:
+      tags: [Tags]
+      summary: Edita el nombre de un tag
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id del tag
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagInput'
+            example:
+              nombre: aventura
+      responses:
+        '200':
+          description: Tag actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Tag actualizado con exito
+                  tag:
+                    $ref: '#/components/schemas/Tag'
+        '400':
+          description: El id es inválido o el body no cumple las reglas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Datos inválidos
+                error: El nombre debe tener al menos 2 caracteres
+        '404':
+          description: El tag no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Tag no encontrado
+        '409':
+          description: Ya existe otro tag con ese nombre
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Ya existe un tag con ese nombre
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al actualizar el tag
+    delete:
+      tags: [Tags]
+      summary: Elimina un tag
+      description: También se eliminan sus asociaciones con posts (tabla intermedia), pero no los posts.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id del tag
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Tag eliminado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensaje'
+              example:
+                message: Tag eliminado con exito
+        '400':
+          description: El id no es un entero positivo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: El id debe ser un número
+        '404':
+          description: El tag no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Tag no encontrado
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al eliminar el tag
+
+  /tags/{id}/posts/{postId}:
+    post:
+      tags: [Tags]
+      summary: Asigna un tag a un post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id del tag
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+        - name: postId
+          in: path
+          required: true
+          description: Id del post
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Tag asignado al post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensaje'
+              example:
+                message: Tag asignado al post correctamente
+        '400':
+          description: El id o el postId no son enteros positivos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: El postId debe ser un número
+        '404':
+          description: El tag o el post no existen
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                tagInexistente:
+                  summary: Tag inexistente
+                  value:
+                    message: Tag no encontrado
+                postInexistente:
+                  summary: Post inexistente
+                  value:
+                    message: Post no encontrado
+        '409':
+          description: El post ya tiene ese tag
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: El post ya tiene ese tag
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al asignar el tag
+    delete:
+      tags: [Tags]
+      summary: Quita un tag de un post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Id del tag
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+        - name: postId
+          in: path
+          required: true
+          description: Id del post
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Tag quitado del post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensaje'
+              example:
+                message: Tag quitado del post correctamente
+        '400':
+          description: El id o el postId no son enteros positivos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: El postId debe ser un número
+        '404':
+          description: El tag o el post no existen, o el post no tiene ese tag
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                tagInexistente:
+                  summary: Tag inexistente
+                  value:
+                    message: Tag no encontrado
+                postInexistente:
+                  summary: Post inexistente
+                  value:
+                    message: Post no encontrado
+                sinAsociacion:
+                  summary: El post no tiene ese tag
+                  value:
+                    message: El post no tiene ese tag
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                message: Error al quitar el tag
+
+components:
+  schemas:
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        contenido:
+          type: string
+          example: Muy buen post!
+        fecha:
+          type: string
+          format: date-time
+          example: '2026-10-20T15:30:00.000Z'
+        postId:
+          type: integer
+          example: 1
+        userId:
+          type: integer
+          example: 2
+        visible:
+          type: boolean
+          readOnly: true
+          description: Atributo virtual. No se guarda en la base, se calcula con la fecha y la variable de entorno MESES_VISIBILIDAD.
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CommentConUsuario:
+      allOf:
+        - $ref: '#/components/schemas/Comment'
+        - type: object
+          properties:
+            user:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  example: 2
+                nickName:
+                  type: string
+                  example: juanperez
+    CommentInput:
+      type: object
+      required: [contenido, postId, userId]
+      additionalProperties: false
+      properties:
+        contenido:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: Muy buen post!
+        postId:
+          type: integer
+          minimum: 1
+          example: 1
+        userId:
+          type: integer
+          minimum: 1
+          example: 2
+    CommentUpdate:
+      type: object
+      required: [contenido]
+      additionalProperties: false
+      properties:
+        contenido:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: Contenido corregido
+    Tag:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: viajes
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    TagConPosts:
+      allOf:
+        - $ref: '#/components/schemas/Tag'
+        - type: object
+          properties:
+            posts:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    example: 1
+                  descripcion:
+                    type: string
+                    example: Mi viaje a Bariloche
+                  fecha:
+                    type: string
+                    format: date-time
+    TagInput:
+      type: object
+      required: [nombre]
+      additionalProperties: false
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 30
+          example: viajes
+    Mensaje:
+      type: object
+      properties:
+        message:
+          type: string
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Recurso no encontrado
+        error:
+          type: string
+          description: Detalle de la validación (solo en errores 400 de Joi)
